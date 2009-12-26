@@ -1,2 +1,2 @@
-require 'hello'
+require 'jsondns'
 run Sinatra::Application
