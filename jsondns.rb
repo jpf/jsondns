@@ -90,12 +90,14 @@ get '/IN/:domain/:type' do
     response = res.send_message(message)
   rescue ResolvError
     # TODO: twiddle the bits on the message with the correct DNS error codes
-    puts "ResolvError"
-    # ...
+    response = message
+    response.header.qr = true
+    response.header.rcode = 'NXDOMAIN'
   rescue ResolvTimeout
     # TODO: twiddle the bits on the message with the correct DNS error codes
-    puts "ResolvTimeout"
-    # ...
+    response = message
+    response.header.qr = true
+    response.header.rcode = 'NXDOMAIN'
   end
 
   JSON.pretty_generate(response.make_json)
