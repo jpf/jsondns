@@ -1,0 +1,22 @@
+JSON DNS is a project to create DNS services that run over HTTP.
+
+The file 'jsondns-standard' contains the proposed standard for doing DNS queries over HTTP. This is a work in progress.
+
+[JSON DNS "Client"]
+
+jsondns.rb contains an example DNS "client" that answers DNS queries via HTTP.
+
+A working example is running at: http://dig.jsondns.org/
+
+
+[JSON DNS "Server"]
+
+Any web server will soon be able to answer DNS queries via a JSON DNS "server" which translates UDP 53 queries into web requests. A proof-of-concept of this "server" is available at: http://github.com/jpf/eventdns - this "server" does NOT implement the proposed JSON DNS standard. A "server" implementing this standard will live here once it's written.
+
+
+December 27, 2009
+Joel Franusic and Jeff Lindsay
+
+With thanks to:
+  Tom Robinson
+  Adam "rndmcnlly" Smith
