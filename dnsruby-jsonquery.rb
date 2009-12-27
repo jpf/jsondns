@@ -4,6 +4,7 @@
 
 require 'rubygems'
 require 'dnsruby'
+require 'domain'
 require 'json'
 include Dnsruby
 
@@ -78,12 +79,17 @@ class Dnsruby::Resolver
     invalid_query = false
     
     # Validate domain name
-    name = inname
+    domain = Domain.new(inname)
+    if domain.valid?
+      name = domain.name
+    else
+      invalid_query = true
+    end
     
     # Validate type
     begin
       type = Types.send(intype)
-    rescue ArgumentError
+    rescue # ArgumentError, TypeError, ...
       invalid_query = true
     end
     
@@ -95,7 +101,7 @@ class Dnsruby::Resolver
       begin
         message = Message.new(name, type)
         response = self.send_message(message)
-      rescue # ResolvError, ResolvTimeout
+      rescue # ResolvError, ResolvTimeout, ...
         # TODO: twiddle the bits on the message with the correct DNS error codes
         response = message
         response.header.qr = true
@@ -106,3 +112,4 @@ class Dnsruby::Resolver
     return JSON.pretty_generate(response.to_hash)
   end # def
 end # class
+
