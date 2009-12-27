@@ -1,0 +1,111 @@
+[ Proposed JSON DNS envelope format ]
+
+Below is the proposed envelope format for JSON DNS messages - it's pretty much a straight mapping from the binary format. I'm sure there is a better way to represent this ...
+
+<MESSAGE>
+-------
+{
+"header":{
+  "ID":"", # 16 bit ID
+  "QR":"", # boolean
+  "Opcode":"", # 0-15 (QUERY, IQUERY (obsolete), STATUS)
+  "AA":"", # boolean
+  "TC":"", # boolean
+  "RD":"", # boolean
+  "RA":"", # boolean
+  "RCODE":"", # 0-15 (no_error, format_error, server_failure, name_error, not_implemented, refused)
+  "QDCOUNT":"", # unsigned 16 bit integer - optional for HTTP? leave out by default?
+  "ANCOUNT":"", # unsigned 16 bit integer - optional for HTTP? leave out by default?
+  "NSCOUNT":"", # unsigned 16 bit integer - optional for HTTP? leave out by default?
+  "ARCOUNT":"" # unsigned 16 bit integer - optional for HTTP? leave out by default?
+},
+"question":[
+  {
+    "QNAME":"", # domain name
+    "QTYPE":"", # two octet code
+    "QCLASS":"", # two octet code
+ } #, [...]
+],
+"answer":[
+  { <RDATA> } #, [...]
+],
+"authority":[
+  { <RDATA> } #, [...]
+],
+"additional":[
+  { <RDATA> } #, [...]
+]
+}
+
+<RDATA>
+-----
+
+{
+  "NAME":"", # domain name
+  "TYPE":"", # two octet code
+  "CLASS":"",  # two octet code
+  "TTL":"", # 32 bit unsigned integer
+  "RDLENGTH":"", # 16 bit unsigned integer - optional for HTTP? leave out by default?
+  "RDATA":"", # variable length
+}
+
+
+[ Proposed mapping of HTTP Status Codes to DNS RCODEs ]
+
+Below is a proposed mapping of HTTP Status Codes to DNS RCODES, the intention of this is to allow for existing web servers to serve static files and act as JSON DNS servers with little or no modification. 
+
+RFC 1035 4.1.1.          = HTTP Status Code
+-------------------------------------------
+RCODE 0 No Error, AA on  = 200 OK
+RCODE 0 No Error, AA off = 203 Non-Authoritative Information
+RCODE 1 Format error     = 400 Bad Request
+RCODE 2 Server Failure   = 503 Service Unavailable
+RCODE 3 Name Error	 = 404 Not Found
+RCODE 4 Not Implemented  = 501 Not Implemented
+RCODE 5 Refused	         = 403 Forbidden
+
+RFC 1035: http://tools.ietf.org/html/rfc1035
+HTTP Status Codes: http://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+
+"A JSON DNS Client MUST assume that recursion IS NOT available unless the HTTP Header "X-DNS-Recursion: available" is present in the request."
+"A JSON DNS Server MUST assume that recursion IS desired unless the HTTP Header "X-DNS-Recursion: not-desired" is present in the request."
+
+
+[ Proposed method for servers to advertise JSON DNS capability ]
+
+Below is the proposed method of announcing that a server is capable of answering JSON DNS queries. The server could be a web application, or just a webserver serving static files. The SRV allows for pointing at HTTP servers running on non-standard ports. The TXT record allows for custom paths.
+
+"A JSON DNS server MUST announce the ability to answer queries via HTTP using a SRV record in the Authority section an A record where the rdata contains the IP address to the server and a TXT record where the rdata contains the string "path=" followed by the base path to be used by JSON DNS clients when constructing queries."
+
+Example:
+
+$ dig @4.2.2.2 +norecurse domdori.com
+
+; <<>> DiG 9.4.3-P3 <<>> @4.2.2.2 +norecurse domdori.com
+; (1 server found)
+;; global options:  printcmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 1337
+;; flags: qr ra; QUERY: 1, ANSWER: 0, AUTHORITY: 3, ADDITIONAL: 4
+
+;; QUESTION SECTION:
+;domdori.com.                   IN      A
+
+;; AUTHORITY SECTION:
+domdori.com.                    172800  IN      NS      ns11.domaincontrol.com.
+domdori.com.                    172800  IN      NS      ns12.domaincontrol.com.
+_dns._http.domdori.com          172800  IN      SRV     0 5 80 ns1.domdori.com
+
+;; ADDITIONAL SECTION:
+ns11.domaincontrol.com.                 172800  IN      A       216.69.185.6
+ns12.domaincontrol.com.                 172800  IN      A       208.109.255.6
+ns1.domdori.com.                        172800  IN      A       1.2.3.4
+ns1.domdori.com.                        172800  IN      TXT     "path=/dns/records/"
+
+
+;; Query time: 186 msec
+;; SERVER: 4.2.2.2#53(4.2.2.2)
+;; WHEN: Fri Oct 30 03:53:06 2009
+;; MSG SIZE  rcvd: 1337
+
+
