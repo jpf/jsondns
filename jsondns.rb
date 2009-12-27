@@ -1,3 +1,4 @@
+$LOAD_PATH.push(File.dirname(__FILE__) + '/lib')
 require 'dnsruby-jsonquery'
 require 'sinatra'
 
@@ -8,7 +9,12 @@ get '/' do
 end
 
 get '/IN/:domain/:type' do
-  resolver.jsonquery(params[:domain],params[:type])
+  answer = resolver.jsonquery(params[:domain],params[:type])
+  if params[:callback]
+    params[:callback] + '(' + answer + ')' # JSONP
+  else
+    answer
+  end
 end
 
 get '/IN*' do
