@@ -1,11 +1,13 @@
-require 'dnsruby-makejson'
+require 'dnsruby-jsonquery'
 require 'sinatra'
 
 indomain = 'example.com'
 intype = 'A'
 
+res = Dnsruby::Resolver.new({:nameserver => "8.8.8.8"}) # Google DNS
+
 get '/IN/:domain/:type' do
-  resolvetojson(params[:domain],params[:type])
+  res.jsonquery(params[:domain],params[:type])
 end
 
 
