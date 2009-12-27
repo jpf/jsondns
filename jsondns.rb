@@ -20,6 +20,15 @@ $LOAD_PATH.push(File.dirname(__FILE__) + '/lib')
 require 'dnsruby-jsonquery'
 require 'sinatra'
 
+def ttl_for(answer)
+  ttl = 5 # set a 5 second ttl
+  answer_hash = JSON.parse(answer)
+  if answer_hash['header']['rcode'] == 'NOERROR' && answer_hash['answer'][0]
+    ttl = answer_hash['answer'][0]['ttl']
+  end
+  ttl
+end
+
 resolver = Dnsruby::Resolver.new({:nameserver => "8.8.8.8"}) # Google DNS
 
 get '/' do
@@ -28,6 +37,7 @@ end
 
 get '/IN/:domain/:type' do
   answer = resolver.jsonquery(params[:domain],params[:type])
+  response.headers['Cache-Control'] = 'public, max-age=' + ttl_for(answer).to_s
   if params[:callback] =~ /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
     params[:callback] + '(' + answer + ')' # JSONP
   else
