@@ -31,12 +31,38 @@ end
 
 resolver = Dnsruby::Resolver.new({:nameserver => "8.8.8.8"}) # Google DNS
 
+def status_for(answer)
+  status      = 503
+  answer_hash = JSON.parse(answer)
+  rcode       = answer_hash['header']['rcode']
+  aa          = answer_hash['header']['aa']
+
+  # These cover RFC 1035, I haven't looked at RFC 2136 yet ...
+     if rcode == 'NOERROR' && aa == true
+    status = 200 # OK
+  elsif rcode == 'NOERROR' && aa == false
+    status = 203 # Non-Authoritative Information
+  elsif rcode == 'FORMERR'
+    status = 400 # Bad Request
+  elsif rcode == 'SERVFAIL'
+    status = 503 # Service Unavailable
+  elsif rcode == 'NXDOMAIN'
+    status = 404 # Not Found
+  elsif rcode == 'NOTIMP'
+    status = 501 # Not Implemented
+  elsif rcode == 'REFUSED'
+    status = 403 # Forbidden 
+  end
+  status
+end
+
 get '/' do
   erb :index
 end
 
 get '/IN/:domain/:type' do
   answer = resolver.jsonquery(params[:domain],params[:type])
+  status status_for(answer)
   response.headers['Cache-Control'] = 'public, max-age=' + ttl_for(answer).to_s
   if params[:callback] =~ /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
     params[:callback] + '(' + answer + ')' # JSONP
@@ -46,5 +72,8 @@ get '/IN/:domain/:type' do
 end
 
 get '/IN*' do
-  resolver.jsonquery(nil,nil)
+  answer = resolver.jsonquery(nil,nil)
+  status status_for(answer)
+  response.headers['Cache-Control'] = 'public, max-age=' + ttl_for(answer).to_s
+  answer
 end
