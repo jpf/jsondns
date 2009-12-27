@@ -1,4 +1,4 @@
-# 
+#!/usr/bin/env ruby
 # dig.rb
 #   Command-line application to do DNS queries that return JSON.
 #
