@@ -10,7 +10,7 @@ end
 
 get '/IN/:domain/:type' do
   answer = resolver.jsonquery(params[:domain],params[:type])
-  if params[:callback]
+  if params[:callback] =~ /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
     params[:callback] + '(' + answer + ')' # JSONP
   else
     answer
