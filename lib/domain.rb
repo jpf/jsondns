@@ -34,7 +34,8 @@ class Domain
     return false if @name.empty?
 
     # [RFC 3696] Return false if the name contains any characters other than /[0-9a-zA-Z\-\.]/
-    return false unless @name =~ /^[0-9a-zA-Z\-\.]+$/
+    # return false unless @name =~ /^[0-9a-zA-Z\-\.]+$/
+    return false unless @name =~ /^[0-9a-zA-Z\_\-\.]+$/ # Allowing '_' for now, I'm probably missing others.
 
     # [RFC 3696] Return false if the name has no "dots"
     return false unless @name.include? '.'
