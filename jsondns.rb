@@ -22,9 +22,9 @@ require 'sinatra'
 
 def ttl_for(answer)
   ttl = 5 # set a 5 second ttl
-  answer_hash = Yajl::Parser.parse(answer)
-  if answer_hash['header']['rcode'] == 'NOERROR' && answer_hash['answer'][0]
-    ttl = answer_hash['answer'][0]['ttl']
+  answer_hash = Yajl::Parser.new(:symbolize_keys => true).parse(answer)
+  if answer_hash[:header][:rcode] == 'NOERROR' && answer_hash[:answer][0]
+    ttl = answer_hash[:answer][0][:ttl]
   end
   ttl
 end
@@ -33,9 +33,9 @@ resolver = Dnsruby::Resolver.new({:nameserver => "4.2.2.2"}) # Google DNS
 
 def status_for(answer)
   status      = 503
-  answer_hash = Yajl::Parser.parse(answer)
-  rcode       = answer_hash['header']['rcode']
-  aa          = answer_hash['header']['aa']
+  answer_hash = Yajl::Parser.new(:symbolize_keys => true).parse(answer)
+  rcode       = answer_hash[:header][:rcode]
+  aa          = answer_hash[:header][:aa]
 
   # These cover RFC 1035, I haven't looked at RFC 2136 yet ...
      if rcode == 'NOERROR' && aa == true
