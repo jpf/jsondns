@@ -63,6 +63,7 @@ end
 get '/IN/:domain/:type' do
   answer = resolver.jsonquery(params[:domain],params[:type])
   status status_for(answer)
+  response.headers['Content-Type'] = 'text/plain'
   response.headers['Cache-Control'] = 'public, max-age=' + ttl_for(answer).to_s
   if params[:callback] =~ /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
     params[:callback] + '(' + answer + ')' # JSONP
