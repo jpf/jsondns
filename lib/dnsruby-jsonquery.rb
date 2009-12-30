@@ -28,7 +28,7 @@ include Dnsruby
 
 class Dnsruby::Header
   def to_hash(*args)
-    rv = Hash.new()
+    rv = Hash.new
     self.instance_variables.each do |key|
       value = self.instance_variable_get(key)
       # I'm considering leaving out headers if they are false
@@ -41,7 +41,7 @@ end
 
 class Dnsruby::Question
   def to_hash(*args)
-    rv = Hash.new()
+    rv = Hash.new
     ['qname','qtype','qclass'].each do |key|
       rv[key] = self.instance_variable_get('@' + key).to_s
     end
@@ -51,7 +51,7 @@ end
 
 class Dnsruby::RR
   def to_hash(*args)
-    rv = Hash.new()
+    rv = Hash.new
     ['name','type','klass','ttl','rdata'].each do |key|
       value = self.instance_variable_get('@' + key)
       name = key
@@ -64,7 +64,7 @@ end
 
 class Dnsruby::Message
   def to_hash(*args)
-    rv = Hash.new()
+    rv = Hash.new
     ['header','question','answer','authority','additional'].each do |part|
       contents = self.instance_variable_get('@' + part).to_hash
       # TODO: Decide if we want to render empty fields to the output
@@ -73,7 +73,7 @@ class Dnsruby::Message
      end
     rv
   end # to_hash
-  def cleanup()
+  def cleanup
     # Removes the annoying dnsruby OPT psudo-classes.
     # FIXME: There is quite likely a better way to do this!
     self.additional.delete_if { |rr| rr.klass.to_s.include?('CLASS') }
@@ -83,7 +83,7 @@ end # Dnsruby::Message
 
 class Array
   def to_hash(*args)
-    rv = Array.new()
+    rv = Array.new
     self.each do |element|
       value = element.to_hash(*args)
       rv.push(value) if value
@@ -112,7 +112,7 @@ class Dnsruby::Resolver
     end
     
     if invalid_query
-      response = Message.new()
+      response = Message.new
       response.header.qr = true
       response.header.rcode = 'FORMERR'
     else
