@@ -29,7 +29,7 @@ def ttl_for(answer)
   ttl
 end
 
-resolver = Dnsruby::Resolver.new({:nameserver => "8.8.8.8"}) # Google DNS
+resolver = Dnsruby::Resolver.new({:nameserver => "4.2.2.2"}) # Google DNS
 
 def status_for(answer)
   status      = 503
