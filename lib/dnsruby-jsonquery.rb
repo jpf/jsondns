@@ -23,7 +23,7 @@
 require 'rubygems'
 require 'dnsruby'
 require 'domain'
-require 'json'
+require 'yajl'
 include Dnsruby
 
 class Dnsruby::Header
@@ -127,7 +127,7 @@ class Dnsruby::Resolver
       end # rescue
     end # else
     response.cleanup
-    return JSON.pretty_generate(response.to_hash)
+    return Yajl::Encoder.new(:pretty => true).encode(response.to_hash)
   end # def
 end # class
 

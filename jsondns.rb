@@ -22,7 +22,7 @@ require 'sinatra'
 
 def ttl_for(answer)
   ttl = 5 # set a 5 second ttl
-  answer_hash = JSON.parse(answer)
+  answer_hash = Yajl::Parser.parse(answer)
   if answer_hash['header']['rcode'] == 'NOERROR' && answer_hash['answer'][0]
     ttl = answer_hash['answer'][0]['ttl']
   end
@@ -33,7 +33,7 @@ resolver = Dnsruby::Resolver.new({:nameserver => "4.2.2.2"}) # Google DNS
 
 def status_for(answer)
   status      = 503
-  answer_hash = JSON.parse(answer)
+  answer_hash = Yajl::Parser.parse(answer)
   rcode       = answer_hash['header']['rcode']
   aa          = answer_hash['header']['aa']
 
