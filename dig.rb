@@ -19,5 +19,19 @@
 $LOAD_PATH.push(File.dirname(__FILE__) + '/lib')
 require 'dnsruby-jsonquery'
 
-resolve = Dnsruby::Resolver.new({:nameserver => "8.8.8.8"}) # Google DNS
-puts resolve.jsonquery(ARGV[0],ARGV[1])
+ns = '8.8.8.8'
+qname = 'example.com'
+qtype = 'A'
+
+match = /^@([0-9\.]+)/.match(ARGV[0])
+if match[1]
+  ns = match[1]
+  qname = ARGV[1]
+  qtype = ARGV[2]
+else
+  qname = ARGV[0]
+  qtype = ARGV[1]
+end
+
+resolve = Dnsruby::Resolver.new({:nameserver => ns})
+puts resolve.jsonquery(qname,qtype)
