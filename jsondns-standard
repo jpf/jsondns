@@ -109,3 +109,6 @@ ns1.domdori.com.                        172800  IN      TXT     "path=/dns/recor
 ;; MSG SIZE  rcvd: 1337
 
 
+[ See Also ]
+
+http://www.dns.net/dnsrd/rfc/
