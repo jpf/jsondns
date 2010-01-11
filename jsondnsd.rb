@@ -10,8 +10,8 @@ require 'pp'
 include Dnsruby
 
 class Hash
-  # hmm .. this should actually be a monkeypatch to Dnsruby::RR "new_from_json_hash"?
-  def to_rdata_string
+  # Used by to_dnsruby_message to convert a Hash into a new Dnsruby::Message
+  def to_rdata_string   # this should actually be a monkeypatch to Dnsruby::RR "new_from_json_hash"
     throw SyntaxError unless defined? self[:name] and defined? self[:ttl] and defined? self[:class] and defined? self[:rdata]
     if self[:rdata].class == Array
       rdata = self[:rdata].join(' ') 
@@ -20,9 +20,9 @@ class Hash
     end
     "%s %s %s %s %s" % [self[:name],self[:ttl],self[:class],self[:type],rdata]
   end
-  
-  # hmm .. this should actually be a monkeypatch to Dnsruby::Message "new_from_json"?
-  def to_dnsruby_message
+
+  # Given a hash, create a Dnsruby::Message - should be given
+  def to_dnsruby_message # this should actually be a monkeypatch to Dnsruby::Message "new_from_json"?
     throw SyntaxError unless defined? self[:header] and defined? self[:question] and defined? self[:answer] and defined? self[:authority]
     msg = Message.new
     header = Header.new
@@ -74,14 +74,36 @@ logfile = File.new(CONFIG[:log_file], 'a') # Always append
 $logger = Logging.logger(logfile)
 $logger.level = CONFIG[:log_level]
 
+class JSONDNSError
+  def initialize(packet = Message.new)
+    @packet = packet
+    @packet.header.qr = true
+  end
+  def format_error
+    rv = @packet
+    rv.header.rcode = 'FORMERR'
+    rv.encode
+  end
+  def server_failure
+    rv = @packet
+    rv.header.rcode = 'SERVFAIL'
+    rv.encode
+  end
+end
+
+class Dnsruby::Message
+  def valid?
+    true
+  end
+end
+
 class EventDns < EventMachine::Connection
-  @backend = nil
   attr_accessor :host, :port
+
   def initialize
     $logger.debug "Started"
   end
 
-  # Is this this needed?
   def new_connection
     # http://nhw.pl/wp/2007/12/07/eventmachine-how-to-get-clients-ip-address
     host = get_peername[2,6].unpack("nC4")
@@ -89,64 +111,85 @@ class EventDns < EventMachine::Connection
     @host = host.join(".")
   end
 
-  # Is this strictly needed?
-  def client_info
-    host+":"+port.to_s
-  end
-  
-  def receive_data(data)
-    new_connection
-
-    # this should be part of the .valid? method
-    return unless data.size > 0
-
+  def process(data)
     begin
       packet = Dnsruby::Message.decode(data)
     rescue Exception => e
       $logger.error "Error decoding packet: #{e.inspect}"
-      # return_error(FORMERR)
-      return
+      error = JSONDNSError.new
+      return error.format_error
     end
 
-    # return_error(FORMERR) unless packet.valid?
+    error = JSONDNSError.new(packet)
 
-    # We can only handle one question per query right now
-    # This is what djbdns does ... don't have strong reasons either way other than that
-    # the current URL structure only supports one question per query
+    return error.format_error unless packet.valid?
+
+    # We can only handle one question per query right now.
+    # This is what djbdns does ... but I'm not married to the idea.
+    # The current URL structure only supports one question per query.
     q = packet.question[0]
-    $logger.debug "#{client_info} requested an #{q.qtype} record for #{q.qname}"
+    $logger.debug "#{@host}:#{@port.to_s} requested an #{q.qtype} record for #{q.qname}"
 
-    # check for reply in cache, return if found
-
-    # This should be a merge or add.
-    id = packet.header.id
     url = "http://dig.jsondns.org/IN/#{q.qname}/#{q.qtype}" # lol
-    string = open(url).read
-    # set the rcode to match the HTTP response code as approprate
-    # send SERVFAIL if the server doesn't respond
-    packet = Yajl::Parser.new(:symbolize_keys => true).parse(string).to_dnsruby_message
-    # send SERVFAIL if we have trouble decoding the JSON
-    packet.header.id = id
 
-    # return_error(FORMERR) unless reply.valid?
-    # update cache
+#     if cached_answer = cache.get(url)
+#       return cached_answer
+#     end
 
-    # reply = open(url).read.to_dnsruby_message
-    # packet.merge(reply)
-
-    # flip AA and QR bits as approprate
-
-    # return_error(FORMERR) unless packet.valid?
-
-    # try: datagram = packet.encode
-    # rescue: send FORMERR
-    
     begin
-      send_datagram(packet.encode, host, port)
+      string = open(url).read
     rescue Exception => e
-      $logger.error "Error decoding packet: #{e.inspect}"
-      #$logger.error e.backtrace.join("\r\n")
-      # return_error(FORMERR) # or something
+      $logger.error "Error reading #{url} (#{e.inspect})"
+      # set the rcode to match the HTTP response code as approprate
+      return error.server_failure
+    end
+
+    begin
+      json = Yajl::Parser.new(:symbolize_keys => true).parse(string)
+    rescue Exception => e
+      $logger.error "Error parsing JSON reply from #{url} (#{e.inspect})"
+      return error.server_failure
+    end
+
+    begin
+      reply = json.to_dnsruby_message
+    rescue Exception => e
+      $logger.error "Error converting JSON reply from #{url} to DNS reply (#{e.inspect})"
+      return error.server_failure
+    end
+
+    # FIXME: Replace this with packet.merge(reply)
+    reply.header.id = packet.header.id
+    packet = reply
+
+    return error.format_error unless packet.valid?
+
+    packet.header.qr = true
+    packet.header.aa = true unless defined? json['header']
+
+    # Catch packets rendered invalid by the modifications above (A SOA reply with the AA flag set for example)
+    return error.format_error unless packet.valid?
+
+    # Make sure that packet.encode or packet.valid? throw errors on packets that are too large, see also:
+    # http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000298
+    begin
+      answer = packet.encode
+    rescue Exception => e
+      $logger.error "Error encoding reply (#{e.inspect})"
+      return error.format_error unless packet.valid?
+    end
+
+#     cache.set(url,answer,ttl)
+    answer
+  end
+
+  def receive_data(data)
+    new_connection
+    reply = process(data)
+    begin
+      send_datagram(reply, @host, @port)
+    rescue Exception => e
+      $logger.error "Error sending reply from #{url} (#{e.inspect})"
     end
 
   end # receive_data
