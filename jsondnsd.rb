@@ -1,4 +1,8 @@
 # encoding: UTF-8
+# A DNS server that services requests by asking an HTTP server for the answer.
+#
+# TODO: Write tests
+# TODO: Write Dnsruby::Message#merge
 
 require 'rubygems'
 require 'logging'
@@ -126,7 +130,7 @@ class JsonDns < EventMachine::Connection
     $logger.debug "cache miss for #{q.qname}/#{q.qtype} - caching reply for #{ttl} seconds"
     @cache.set(url,message,ttl)
 
-    # Make sure that message.encode or message.valid? throw errors on messages that are too large, see also:
+    # TODO: Make sure that message.encode or message.valid? throw errors on messages that are too large, see also:
     # http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000298
     begin
       answer = message.encode
