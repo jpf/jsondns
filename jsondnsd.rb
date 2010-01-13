@@ -75,17 +75,17 @@ $logger = Logging.logger(logfile)
 $logger.level = CONFIG[:log_level]
 
 class JSONDNSError
-  def initialize(packet = Message.new)
-    @packet = packet
-    @packet.header.qr = true
+  def initialize(message = Message.new)
+    @message = message
+    @message.header.qr = true
   end
   def format_error
-    rv = @packet
+    rv = @message
     rv.header.rcode = 'FORMERR'
     rv.encode
   end
   def server_failure
-    rv = @packet
+    rv = @message
     rv.header.rcode = 'SERVFAIL'
     rv.encode
   end
@@ -113,21 +113,21 @@ class JsonDns < EventMachine::Connection
 
   def process(data)
     begin
-      packet = Dnsruby::Message.decode(data)
+      message = Dnsruby::Message.decode(data)
     rescue Exception => e
-      $logger.error "Error decoding packet: #{e.inspect}"
+      $logger.error "Error decoding message: #{e.inspect}"
       error = JSONDNSError.new
       return error.format_error
     end
 
-    error = JSONDNSError.new(packet)
+    error = JSONDNSError.new(message)
 
-    return error.format_error unless packet.valid?
+    return error.format_error unless message.valid?
 
     # We can only handle one question per query right now.
     # This is what djbdns does ... but I'm not married to the idea.
     # The current URL structure only supports one question per query.
-    q = packet.question[0]
+    q = message.question[0]
     $logger.debug "#{@host}:#{@port.to_s} requested an #{q.qtype} record for #{q.qname}"
 
     url = "http://dig.jsondns.org/IN/#{q.qname}/#{q.qtype}" # lol
@@ -158,25 +158,25 @@ class JsonDns < EventMachine::Connection
       return error.server_failure
     end
 
-    # FIXME: Replace this with packet.merge(reply)
-    reply.header.id = packet.header.id
-    packet = reply
+    # FIXME: Replace this with message.merge(reply)
+    reply.header.id = message.header.id
+    message = reply
 
-    return error.format_error unless packet.valid?
+    return error.format_error unless message.valid?
 
-    packet.header.qr = true
-    packet.header.aa = true unless defined? json['header']
+    message.header.qr = true
+    message.header.aa = true unless defined? json['header']
 
-    # Catch packets rendered invalid by the modifications above (A SOA reply with the AA flag set for example)
-    return error.format_error unless packet.valid?
+    # Catch messages rendered invalid by the modifications above (A SOA reply with the AA flag set for example)
+    return error.format_error unless message.valid?
 
-    # Make sure that packet.encode or packet.valid? throw errors on packets that are too large, see also:
+    # Make sure that message.encode or message.valid? throw errors on messages that are too large, see also:
     # http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000298
     begin
-      answer = packet.encode
+      answer = message.encode
     rescue Exception => e
       $logger.error "Error encoding reply (#{e.inspect})"
-      return error.format_error unless packet.valid?
+      return error.format_error unless message.valid?
     end
 
 #     cache.set(url,answer,ttl)
