@@ -91,6 +91,26 @@ class JSONDNSError
   end
 end
 
+class SimpleCache
+  @storage = nil
+  def initialize
+    @storage = {}
+  end
+  def set(key,value,expire_seconds=30)
+    @storage[key] = [Time.now + expire_seconds, value]
+  end
+  def get(key)
+    return nil unless @storage[key]
+    
+    if @storage[key][0] > Time.now
+      return @storage[key][1]
+    else
+      @storage.delete(key)
+    end
+    return nil
+  end
+end
+
 class Dnsruby::Message
   def valid?
     true
@@ -102,6 +122,7 @@ class JsonDns < EventMachine::Connection
 
   def initialize
     $logger.debug "Started"
+    @cache = SimpleCache.new
   end
 
   def new_connection
@@ -132,9 +153,11 @@ class JsonDns < EventMachine::Connection
 
     url = "http://dig.jsondns.org/IN/#{q.qname}/#{q.qtype}" # lol
 
-#     if cached_answer = cache.get(url)
-#       return cached_answer
-#     end
+    if cached_answer = @cache.get(url)
+      # FIXME: Replace this with message.merge(cached_answer)
+      cached_answer.header.id = message.header.id
+      return cached_answer.encode
+    end
 
     begin
       string = open(url).read
@@ -170,6 +193,11 @@ class JsonDns < EventMachine::Connection
     # Catch messages rendered invalid by the modifications above (A SOA reply with the AA flag set for example)
     return error.format_error unless message.valid?
 
+    ttl = message.answer[0].ttl
+    ttl = 10 unless ttl
+    $logger.debug "cache miss for #{q.qname}/#{q.qtype} - caching reply for #{ttl} seconds"
+    @cache.set(url,message,ttl)
+
     # Make sure that message.encode or message.valid? throw errors on messages that are too large, see also:
     # http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000298
     begin
@@ -178,8 +206,6 @@ class JsonDns < EventMachine::Connection
       $logger.error "Error encoding reply (#{e.inspect})"
       return error.format_error unless message.valid?
     end
-
-#     cache.set(url,answer,ttl)
     answer
   end
 
