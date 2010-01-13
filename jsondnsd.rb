@@ -21,7 +21,7 @@ class Hash
     "%s %s %s %s %s" % [self[:name],self[:ttl],self[:class],self[:type],rdata]
   end
 
-  # Given a hash, create a Dnsruby::Message - should be given
+  # Given a hash (but should be a string), create a Dnsruby::Message
   def to_dnsruby_message # this should actually be a monkeypatch to Dnsruby::Message "new_from_json"?
     throw SyntaxError unless defined? self[:header] and defined? self[:question] and defined? self[:answer] and defined? self[:authority]
     msg = Message.new
@@ -97,7 +97,7 @@ class Dnsruby::Message
   end
 end
 
-class EventDns < EventMachine::Connection
+class JsonDns < EventMachine::Connection
   attr_accessor :host, :port
 
   def initialize
@@ -199,7 +199,7 @@ class EventDns < EventMachine::Connection
 #    File.delete(CONFIG[:pid_file])
   end # shutdown
 
-end # EventDns
+end # JsonDns
 
 
 
@@ -221,9 +221,8 @@ EventMachine.run {
     # http://eventmachine.rubyforge.org/docs/EPOLL.html
     EventMachine.epoll
     EventMachine.kqueue
-    connection = EventMachine.open_datagram_socket(CONFIG[:bind_address], CONFIG[:bind_port], EventDns)
-    $logger.info "EventDns started"
-#    $logger.debug "Backend is: '#{CONFIG[:backend]}'"
+    connection = EventMachine.open_datagram_socket(CONFIG[:bind_address], CONFIG[:bind_port], JsonDns)
+    $logger.info "jsondnsd started"
   rescue Exception => e
     $logger.fatal "#{e.inspect}"
     $logger.fatal e.backtrace.join("\r\n")
