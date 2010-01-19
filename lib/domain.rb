@@ -17,7 +17,7 @@
 #    limitations under the License.
 #
 class Domain
-  attr_reader :name
+  attr_reader :name, :labels, :tld
   def initialize(name)
     name ||= ''
     @name = name
