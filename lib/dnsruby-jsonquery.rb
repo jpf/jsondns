@@ -22,8 +22,9 @@
 
 require 'rubygems'
 require 'dnsruby'
-require 'domain'
 require 'yajl'
+$LOAD_PATH.push(File.dirname(__FILE__))
+require 'domain'
 include Dnsruby
 
 class Dnsruby::Header
@@ -33,7 +34,7 @@ class Dnsruby::Header
       value = self.instance_variable_get(key)
       # I'm considering leaving out headers if they are false
       # next if value == false
-      rv[key.sub('@','')] = value
+      rv[key.sub('@','').to_sym] = value
     end
     rv
   end # to_hash
@@ -43,7 +44,7 @@ class Dnsruby::Question
   def to_hash(*args)
     rv = Hash.new
     ['qname','qtype','qclass'].each do |key|
-      rv[key] = self.instance_variable_get('@' + key).to_s
+      rv[key.to_sym] = self.instance_variable_get('@' + key).to_s
     end
     rv
   end # to_hash
@@ -56,7 +57,7 @@ class Dnsruby::RR
       value = self.instance_variable_get('@' + key)
       name = key
       name = 'class' if key == 'klass'
-      rv[name] = value
+      rv[name.to_sym] = value
     end
     rv
   end # to_hash
@@ -69,7 +70,7 @@ class Dnsruby::Message
       contents = self.instance_variable_get('@' + part).to_hash
       # TODO: Decide if we want to render empty fields to the output
       # rv[part] = contents unless contents.empty?
-      rv[part] = contents
+      rv[part.to_sym] = contents
      end
     rv
   end # to_hash

@@ -16,6 +16,7 @@ include Dnsruby
 $LOAD_PATH.push(File.dirname(__FILE__))
 require 'lib/hash-to-dnsruby'
 require 'lib/simplecache'
+require 'lib/dnsruby-jsonquery'
 require 'lib/dnsruby-valid'
 
 # daemonize changes the directory to "/"
@@ -66,29 +67,28 @@ class JsonDns < EventMachine::Connection
 
   def process(data)
     begin
-      message = Dnsruby::Message.decode(data)
+      message = Dnsruby::Message.decode(data).to_hash
     rescue Exception => e
       $logger.error "Error decoding message: #{e.inspect}"
       error = DnsrubyError.new
       return error.format_error
     end
 
-    error = DnsrubyError.new(message)
-
+    error = DnsrubyError.new(message.to_dnsruby_message)
     return error.format_error unless message.valid?
 
     # We can only handle one question per query right now.
     # This is what djbdns does ... but I'm not married to the idea.
     # The current URL structure only supports one question per query.
-    q = message.question[0]
-    $logger.debug "#{@host}:#{@port.to_s} requested an #{q.qtype} record for #{q.qname}"
+    q = message[:question][0]
+    $logger.debug "#{@host}:#{@port.to_s} requested an #{q[:qtype]} record for #{q[:qname]}"
 
-    url = "http://dig.jsondns.org/IN/#{q.qname}/#{q.qtype}" # lol
+    #url = "http://dig.jsondns.org/IN/#{q[:qname]}/#{q[:qtype]}" # lol
+    url = "http://bananatest.nfshost.com/IN/#{q[:qname]}/#{q[:qtype]}" # lol
 
     if cached_answer = @cache.get(url)
-      # FIXME: Replace this with message.merge(cached_answer)
-      cached_answer.header.id = message.header.id
-      return cached_answer.encode
+      message.overlay!(cached_answer)
+      return message.to_dnsruby_message.encode
     end
 
     begin
@@ -100,50 +100,60 @@ class JsonDns < EventMachine::Connection
     end
 
     begin
-      json = Yajl::Parser.new(:symbolize_keys => true).parse(string)
+      server_reply = Yajl::Parser.new(:symbolize_keys => true).parse(string)
     rescue Exception => e
       $logger.error "Error parsing JSON reply from #{url} (#{e.inspect})"
       return error.server_failure
     end
 
+    reply_json = '{"header": {"aa": true}}'
+    reply = Yajl::Parser.new(:symbolize_keys => true).parse(reply_json)
+
+    reply_required_json = '{"header": {"qr": true,"opcode": "Query"}}'
+    reply_required = Yajl::Parser.new(:symbolize_keys => true).parse(reply_required_json)
+
     begin
-      reply = json.to_dnsruby_message
-    rescue Exception => e
-      $logger.error "Error converting JSON reply from #{url} to DNS reply (#{e.inspect})"
+      reply.overlay!(server_reply)
+      reply.overlay!(reply_required)
+      message.overlay!(reply)
+    rescue
+      $logger.error "Error merging reply with query (#{e.inspect})"
       return error.server_failure
     end
-
-    # FIXME: Replace this with message.merge(reply)
-    reply.header.id = message.header.id
-    message = reply
-
-    return error.format_error unless message.valid?
-
-    message.header.qr = true
-    message.header.aa = true unless defined? json['header']
 
     # Catch messages rendered invalid by the modifications above (A SOA reply with the AA flag set for example)
     return error.format_error unless message.valid?
 
-    ttl = message.answer[0].ttl
-    ttl = 10 unless ttl
-    $logger.debug "cache miss for #{q.qname}/#{q.qtype} - caching reply for #{ttl} seconds"
-    @cache.set(url,message,ttl)
-
     # TODO: Make sure that message.encode or message.valid? throw errors on messages that are too large, see also:
     # http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000298
     begin
-      answer = message.encode
+      answer = message.to_dnsruby_message.encode
     rescue Exception => e
       $logger.error "Error encoding reply (#{e.inspect})"
-      return error.format_error unless message.valid?
+      return error.server_failure
     end
+
+    # Only cache the message if it encodes without error
+    ttl = message[:answer][0][:ttl]
+    ttl = 10 unless ttl
+    $logger.debug "cache miss for #{q[:qname]}/#{q[:qtype]} - caching reply for #{ttl} seconds"
+    @cache.set(url,message,ttl)
+
     answer
   end
 
   def receive_data(data)
     new_connection
-    reply = process(data)
+
+    begin
+      reply = process(data)
+    rescue
+      # Handle unhandled exceptions ... we should never get this.
+      $logger.error "Encountered unknown error while processing packet data"
+      error = DnsrubyError.new
+      reply = error.server_failure
+    end
+
     begin
       send_datagram(reply, @host, @port)
     rescue Exception => e
