@@ -1,3 +1,11 @@
+[ Proposed JSON DNS HTTP API format ]
+
+(IP address or hostname of "server")(:port)/(optional prefix)/(QCLASS)/(QNAME)/(QTYPE)
+
+Example:
+
+http://domdori.com/dns/IN/github.com/A
+
 [ Proposed JSON DNS envelope format ]
 
 Below is the proposed envelope format for JSON DNS messages - it's pretty much a straight mapping from the binary format. I'm sure there is a better way to represent this ...
