@@ -1,8 +1,14 @@
 # encoding: UTF-8
 # A DNS server that services requests by asking an HTTP server for the answer.
-#
-# TODO: Write tests
-# TODO: Write Dnsruby::Message#merge
+
+print <<DANGER # USE WEBDNS INSTEAD
+This code was a proof of concept. It works, but is VERY UNSTABLE.
+If you want a solid DNS server that proxies request to an HTTP server. Use "webdns" instead!
+
+http://github.com/progrium/webdns
+
+DANGER
+exit
 
 require 'rubygems'
 require 'logging'
