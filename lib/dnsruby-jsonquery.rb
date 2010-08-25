@@ -25,6 +25,7 @@ require 'dnsruby'
 require 'yajl'
 $LOAD_PATH.push(File.dirname(__FILE__))
 require 'domain'
+require 'base64'
 include Dnsruby
 
 class Dnsruby::Header
@@ -57,7 +58,21 @@ class Dnsruby::RR
       value = self.instance_variable_get('@' + key)
       name = key
       name = 'class' if key == 'klass'
-      rv[name.to_sym] = value
+
+      if not value.is_a?Array
+        rv[name.to_sym] = value
+        next
+      end
+
+      # We need to check the contents of Array's for elements with non-printable characters, and base64 encode those elements
+      rv[name.to_sym] = value.map do |element|
+        if element.to_s =~ /[^[:print:]]/
+          'data:application/octet-stream;base64,' + Base64.encode64(element).chomp
+        else
+          element.to_s
+        end
+      end # map
+
     end
     rv
   end # to_hash
