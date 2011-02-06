@@ -76,6 +76,7 @@ end
 get '/IN*' do
   answer = resolver.jsonquery(nil,nil)
   status status_for(answer)
+  response.headers['Content-Type'] = 'text/plain'
   response.headers['Cache-Control'] = 'public, max-age=' + ttl_for(answer).to_s
   answer
 end
