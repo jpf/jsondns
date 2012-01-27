@@ -73,6 +73,7 @@ get '/IN/:domain/:type' do
   end
 end
 
+# Return a blank result for invalid requests.
 get '/IN*' do
   answer = resolver.jsonquery(nil,nil)
   status status_for(answer)
