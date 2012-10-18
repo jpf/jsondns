@@ -33,9 +33,11 @@ class Dnsruby::Header
     rv = Hash.new
     self.instance_variables.each do |key|
       value = self.instance_variable_get(key)
-      # I'm considering leaving out headers if they are false
-      # next if value == false
-      rv[key.sub('@','').to_sym] = value
+      # NOTE: I'm considering leaving out headers if they are false, here is how I'd do that:
+      ## next if value == false
+      # This removes '@' from the key. I don't remember where that comes from, presumably
+      # Dnsruby adds it?
+      rv[key.to_s.sub('@','').to_sym] = value
     end
     rv
   end # to_hash
