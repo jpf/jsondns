@@ -28,6 +28,22 @@ require 'domain'
 require 'base64'
 include Dnsruby
 
+# [via: http://www.jsiegel.com/2011/12/workaround-dnsruby-gem-not-working-on.html]
+# Patch Dnsruby which is broken on Heroku:
+module Dnsruby;
+  class SelectThread;
+    def get_socket_pair;
+      srv = nil;
+      srv = TCPServer.new('::1', 0);
+      rsock = TCPSocket.new(srv.addr[3], srv.addr[1]);
+      lsock = srv.accept; srv.close;
+      return [lsock, rsock];
+    end;
+  end;
+end
+
+
+
 class Dnsruby::Header
   def to_hash(*args)
     rv = Hash.new
