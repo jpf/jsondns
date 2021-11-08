@@ -18,6 +18,6 @@ phases:
       - gem install thin
       - gem install tilt
       - gem install yajl-ruby 
- pre_build:
+  build:
     commands:
       - RAILS_ENV=source :https://rubygems.org
