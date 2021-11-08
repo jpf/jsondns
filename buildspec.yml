@@ -1,9 +1,5 @@
 version: 0.2
 
-env:
-  variables:
-    AWS_REGION: "us-east-2"
-
 phases:
   install:
     runtime-versions:
@@ -17,7 +13,4 @@ phases:
       - gem install sinatra
       - gem install thin
       - gem install tilt
-      - gem install yajl-ruby 
-  build:
-    commands:
-      - RAILS_ENV=source :https://rubygems.org
+      - gem install yajl-ruby
